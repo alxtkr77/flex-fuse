@@ -28,7 +28,7 @@ RUN go mod download
 COPY ./pkg ./pkg
 COPY ./cmd ./cmd
 
-RUN go build -o /fuse cmd/fuse/main.go
+RUN  CGO_ENABLED=0 go build -o /fuse cmd/fuse/main.go
 
 FROM alpine:3.20
 
