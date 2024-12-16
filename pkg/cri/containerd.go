@@ -221,29 +221,27 @@ func extractECRRegion(imageName string) (string, error) {
 	return region, nil
 }
 
-
-
 // getECRPullCommand generates a pull command only if awsPath is found
 // Assumes the image is already verified to be an ECR image and region is extracted
 func getECRPullCommand(image, ctrPath, region string) (*exec.Cmd, error) {
-    // Find aws CLI path
-    awsPath, lookPathErr := exec.LookPath("aws")
-    if lookPathErr != nil {
-        return nil, fmt.Errorf("aws CLI not found in PATH: %w", lookPathErr)
-    }
+	// Find aws CLI path
+	awsPath, lookPathErr := exec.LookPath("aws")
+	if lookPathErr != nil {
+		return nil, fmt.Errorf("aws CLI not found in PATH: %w", lookPathErr)
+	}
 
-    // Get ECR password
-    cmd := exec.Command(awsPath, "ecr", "get-login-password", "--region", region)
-    ecrPasswordBytes, cmdErr := cmd.Output()
-    if cmdErr != nil {
-        return nil, fmt.Errorf("failed to retrieve ECR password: %w", cmdErr)
-    }
+	// Get ECR password
+	cmd := exec.Command(awsPath, "ecr", "get-login-password", "--region", region)
+	ecrPasswordBytes, cmdErr := cmd.Output()
+	if cmdErr != nil {
+		return nil, fmt.Errorf("failed to retrieve ECR password: %w", cmdErr)
+	}
 
-    // Create pull command with ECR credentials
-    ecrPassword := strings.TrimSpace(string(ecrPasswordBytes))
-    pullCmd := exec.Command(ctrPath, "-n", "k8s.io", "images", "pull", "--user", fmt.Sprintf("AWS:%s", ecrPassword), image)
+	// Create pull command with ECR credentials
+	ecrPassword := strings.TrimSpace(string(ecrPasswordBytes))
+	pullCmd := exec.Command(ctrPath, "-n", "k8s.io", "images", "pull", "--user", fmt.Sprintf("AWS:%s", ecrPassword), image)
 
-    return pullCmd, nil
+	return pullCmd, nil
 }
 
 func (c *Containerd) createContainer(image string,
@@ -324,16 +322,23 @@ func (c *Containerd) createContainer(image string,
 
 		// Check if AWS CLI is installed
 		var cmd *exec.Cmd
-		var ecr_region string
-		// First check if it's an ECR image
-		ecr_region, err = extractECRRegion(image)
-		if err != nil { journal.Debug("extractECRRegion return error, %v", err) }
-		
-		if err == nil {
-			// If it is an ECR image, get the authenticated pull command
-			cmd, err = getECRPullCommand(image, ctrPath, ecr_region)
-			if err != nil { journal.Debug("ECR region is %s, getECRPullCommand return error, %v",ecr_region, err) }
-		} 
+
+		err = fmt.Errorf("not ECR image")
+		if strings.Contains(image, "amazonaws") {
+			var ecrRegion string
+			// First check if it's an ECR image
+			ecrRegion, err = extractECRRegion(image)
+			if err == nil {
+				journal.Error("extractECRRegion return error, %v", err)
+			} else {
+				// If it is an ECR image, get the authenticated pull command
+				cmd, err = getECRPullCommand(image, ctrPath, ecrRegion)
+				if err != nil {
+					journal.Error("ECR region is %s, getECRPullCommand return error, %v", ecrRegion, err)
+				}
+			}
+		}
+		// If it's not an ECR image, or if the ECR image pull command failed, fall back to the default ctr pull command
 		if err != nil {
 			cmd = exec.Command(ctrPath, "-n", "k8s.io", "images", "pull", "--hosts-dir", "/etc/containerd/certs.d/", image)
 		}
