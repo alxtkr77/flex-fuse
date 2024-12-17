@@ -320,7 +320,6 @@ func (c *Containerd) createContainer(image string,
 			return nil, err
 		}
 
-		// Check if AWS CLI is installed
 		var cmd *exec.Cmd
 
 		err = fmt.Errorf("not ECR image")
@@ -328,7 +327,7 @@ func (c *Containerd) createContainer(image string,
 			var ecrRegion string
 			// First check if it's an ECR image
 			ecrRegion, err = extractECRRegion(image)
-			if err == nil {
+			if err != nil {
 				journal.Error("extractECRRegion return error, %v", err)
 			} else {
 				// If it is an ECR image, get the authenticated pull command
