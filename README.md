@@ -56,6 +56,6 @@ metadata:
   name: v3io-fuse-user
 type: v3io/fuse
 data:
-  accessKey: YThhNHl6dlBMb2g2UU5JcQo=
+  accessKey: ********************
 ```
 
